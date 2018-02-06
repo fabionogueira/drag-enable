@@ -1,0 +1,33 @@
+{
+  "name": "drag-enable",
+  "version": "1.0.0",
+  "description": "Enable drag element",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fabionogueira/drag-enable.git"
+  },
+  "keywords": [
+    "drag",
+    "drop",
+    "element"
+  ],
+  "author": "Fabio Nogueira",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/fabionogueira/drag-enable/issues"
+  },
+  "homepage": "https://github.com/fabionogueira/drag-enable#readme",
+  "devDependencies": {
+    "babel": "^6.23.0",
+    "babel-core": "^6.22.1",
+    "babel-eslint": "^7.1.1",
+    "babel-loader": "^7.1.2",
+    "babel-preset-es2015": "^6.24.1",
+    "uglifyjs-webpack-plugin": "^1.1.8",
+    "webpack": "^3.10.0"
+  }
+}
