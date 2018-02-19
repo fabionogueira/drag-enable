@@ -1,11 +1,12 @@
 let targetElement;
-let difX, difY;
+let difX, difY, initialX, initialY;
 let initialUserSelect;
 let activeTargetDrop;
 let dragData;
 let activeOptions = [];
 let observers = {};
 let compiledMatchs = {};
+let grid = [1,1];
 
 export default {
     /**
@@ -27,6 +28,10 @@ export default {
         delete (observers[id]);
     }
 };
+
+function round(p, n) {
+    return p % n < n / 2 ? p - (p % n) : p + n - (p % n);
+}
 
 function checkMatch(element, match){
     let a, def;
@@ -95,14 +100,18 @@ function dispatch(name, event = null) {
 }
 
 function onMouseMove(event) {
-    let rect, targetDrop, targetMouseOver;
+    let rect, targetDrop, targetMouseOver, gd, x, y;
     let mouseX = event.pageX;
     let mouseY = event.pageY;
+    let deslocX = event.pageX - initialX;
+    let deslocY = event.pageY - initialY;
     let evt = {
         difX  : difX,
         difY  : difY,
         mouseX: mouseX,
         mouseY: mouseY,
+        deslocX: deslocX,
+        deslocY: deslocY,
         cancel: false,
         targetElement: targetElement
     };
@@ -131,23 +140,46 @@ function onMouseMove(event) {
 
     if (!targetElement.__drag_started) {
         lockTextSelection();
-        document.body.appendChild(targetElement);
+
+        if (targetElement.getAttribute('drag-container')!='self'){
+            document.body.appendChild(targetElement);
+        }
+        
         targetElement.setAttribute('drag-moving', '');
         targetElement.__drag_started = true;
         dragData = {};
+        gd = targetElement.parentNode.getAttribute('grid');
+        if (gd){
+            grid = gd.split(',');
+            grid.forEach((n, i, a) => {
+                a[i] = Number(n);
+            });
+        } else {
+            grid = [1,1];
+        }
+        
         dispatch('dragStart', {data:dragData, target:targetElement});
     }
+
+    x = targetElement.parentNode == document.body ? mouseX - difX : targetElement.initialOffsetLeft + deslocX; 
+    y = targetElement.parentNode == document.body ? mouseY - difY : targetElement.initialOffsetTop + deslocY;
+    
+    x = round(x, grid[0]);
+    y = round(y, grid[1]);
 
     dispatch('dragMove', evt);
     
     if (evt.cancel !== true) {
+
         // posiciona o elemento
         targetElement.style.zIndex = 9999999;
         targetElement.style.position = 'absolute';
         targetElement.style.margin = 0;
-        targetElement.style.top = `${mouseY - difY}px`;
-        targetElement.style.left = `${mouseX - difX}px`;
+        targetElement.style.top = `${y}px`;
+        targetElement.style.left = `${x}px`;
     }
+
+    dispatch('dragAfterMove', evt);
 
     if (activeTargetDrop && activeTargetDrop != targetDrop){
         // saiu da drop zone
@@ -213,6 +245,10 @@ function onMouseDown(event) {
     }
 
     while (t.parentNode) {
+        if (t.hasAttribute('drag-disabled')){
+            return;
+        }
+        
         if (t.hasAttribute('drag-enabled')) {
             activeOptions = getActiveOptions(t);
             targetElement = t;
@@ -221,6 +257,10 @@ function onMouseDown(event) {
 
             difX = event.pageX - r.left;
             difY = event.pageY - r.top;
+            initialX = event.pageX;
+            initialY = event.pageY;
+            targetElement.initialOffsetLeft = targetElement.offsetLeft;
+            targetElement.initialOffsetTop = targetElement.offsetTop;
 
             if (targetElement.getAttribute('drag-enabled') == 'clone'){
                 targetElement = targetElement.cloneNode(true);
