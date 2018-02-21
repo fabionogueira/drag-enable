@@ -1,11 +1,16 @@
 let targetElement;
-let difX, difY;
+let difX, difY, initialX, initialY;
 let initialUserSelect;
 let activeTargetDrop;
 let dragData;
 let activeOptions = [];
 let observers = {};
 let compiledMatchs = {};
+let grid = [1,1];
+let mouseX;
+let mouseY;
+let deslocX;
+let deslocY;
 
 export default {
     /**
@@ -27,6 +32,10 @@ export default {
         delete (observers[id]);
     }
 };
+
+function round(p, n) {
+    return p % n < n / 2 ? p - (p % n) : p + n - (p % n);
+}
 
 function checkMatch(element, match){
     let a, def;
@@ -81,6 +90,20 @@ function getActiveOptions(element){
 
     return a;
 }
+function createEvent(){
+    return {
+        data  : dragData,
+        difX  : difX,
+        difY  : difY,
+        mouseX: mouseX,
+        mouseY: mouseY,
+        deslocX: deslocX,
+        deslocY: deslocY,
+        cancel: false,
+        targetElement: targetElement,
+        targetDrop: activeTargetDrop
+    };
+}
 function dispatch(name, event = null) {
     let s = 'on' + name[0].toUpperCase() + name.substring(1);
     let fn;
@@ -95,59 +118,88 @@ function dispatch(name, event = null) {
 }
 
 function onMouseMove(event) {
-    let rect, targetDrop, targetMouseOver;
-    let mouseX = event.pageX;
-    let mouseY = event.pageY;
-    let evt = {
-        difX  : difX,
-        difY  : difY,
-        mouseX: mouseX,
-        mouseY: mouseY,
-        cancel: false,
-        targetElement: targetElement
-    };
+    let rect, targetDrop, targetMouseOver, gd, x, y, dropName, evt;
+    
+    deslocX = event.pageX - initialX;
+    deslocY = event.pageY - initialY;
+    mouseX = event.pageX;
+    mouseY = event.pageY;
+    
+    evt = createEvent();
     
     // encontra o target drop
-    targetElement.hidden = true;
+    if (!targetElement.__display){
+        targetElement.__display = targetElement.style.display;
+    }
+    targetElement.style.display = 'none';
     targetDrop = targetMouseOver = document.elementFromPoint(event.pageX, event.pageY);
-    targetElement.hidden = false;
+    targetElement.style.display = targetElement.__display;
     evt.target = targetDrop; // element que o mouse está dentro
+    
     if (targetDrop){
         targetDrop = targetDrop.closest('[drop-enabled]');
         if (targetDrop){
             evt.targetDrop = targetDrop;
+            dropName = targetDrop.getAttribute('drop-enabled');
 
-            // posição do mouse dentro target drop
-            rect = targetDrop.getBoundingClientRect();
-            evt.dropX = mouseX - rect.left;
-            evt.dropY = mouseY - rect.top;
-            
-            // posição do mouse dentro do elemento mouseover
-            rect = targetMouseOver.getBoundingClientRect();
-            evt.dropChildX = mouseX - rect.left;
-            evt.dropChildY = mouseY - rect.top;
+            if (targetElement.getAttribute('drop-target') && targetElement.getAttribute('drop-target') != dropName){
+                evt.targetDrop = targetDrop = null;
+            } else {
+                // posição do mouse dentro target drop
+                rect = targetDrop.getBoundingClientRect();
+                evt.dropX = mouseX - rect.left;
+                evt.dropY = mouseY - rect.top;
+                
+                // posição do mouse dentro do elemento mouseover
+                rect = targetMouseOver.getBoundingClientRect();
+                evt.dropChildX = mouseX - rect.left;
+                evt.dropChildY = mouseY - rect.top;
+            }
         }
     }
 
     if (!targetElement.__drag_started) {
         lockTextSelection();
-        document.body.appendChild(targetElement);
+
+        if (targetElement.getAttribute('drag-container')!='self'){
+            document.body.appendChild(targetElement);
+        }
+        
         targetElement.setAttribute('drag-moving', '');
         targetElement.__drag_started = true;
         dragData = {};
+        gd = targetElement.parentNode.getAttribute('grid');
+        if (gd){
+            grid = gd.split(',');
+            grid.forEach((n, i, a) => {
+                a[i] = Number(n);
+            });
+        } else {
+            grid = [1,1];
+        }
+        
         dispatch('dragStart', {data:dragData, target:targetElement});
     }
+
+    x = targetElement.parentNode == document.body ? mouseX - difX : targetElement.initialOffsetLeft + deslocX; 
+    y = targetElement.parentNode == document.body ? mouseY - difY : targetElement.initialOffsetTop + deslocY;
+    
+    x = round(x, grid[0]);
+    y = round(y, grid[1]);
 
     dispatch('dragMove', evt);
     
     if (evt.cancel !== true) {
+
         // posiciona o elemento
         targetElement.style.zIndex = 9999999;
         targetElement.style.position = 'absolute';
         targetElement.style.margin = 0;
-        targetElement.style.top = `${mouseY - difY}px`;
-        targetElement.style.left = `${mouseX - difX}px`;
+        targetElement.style.top = `${y}px`;
+        targetElement.style.left = `${x}px`;
     }
+
+    dispatch('dragAfterMove', evt);
 
     if (activeTargetDrop && activeTargetDrop != targetDrop){
         // saiu da drop zone
@@ -167,25 +219,24 @@ function onMouseMove(event) {
         dispatch('dropEnter', evt, targetDrop);
     }
 
-    window.dispatchEvent(new Event('resize'));
+    // window.dispatchEvent(new Event('resize'));
 }
 
 function onMouseUp() {
+    let evt = createEvent();
+
     document.removeEventListener('mouseup', onMouseUp);
     document.removeEventListener('mousemove', onMouseMove);
 
     restoreTextSelection();
 
     if (targetElement.__drag_started){
-        dispatch('dragEnd');
+        dispatch('dragEnd', evt);
     }
 
     if (activeTargetDrop){
         activeTargetDrop.removeAttribute('drop-over');
-        dispatch('drop', {
-            data: dragData,
-            targetDrop: activeTargetDrop
-        });
+        dispatch('drop', evt);
         activeTargetDrop = null;
     }
 
@@ -213,6 +264,10 @@ function onMouseDown(event) {
     }
 
     while (t.parentNode) {
+        if (t.hasAttribute('drag-disabled')){
+            return;
+        }
+        
         if (t.hasAttribute('drag-enabled')) {
             activeOptions = getActiveOptions(t);
             targetElement = t;
@@ -221,6 +276,10 @@ function onMouseDown(event) {
 
             difX = event.pageX - r.left;
             difY = event.pageY - r.top;
+            initialX = event.pageX;
+            initialY = event.pageY;
+            targetElement.initialOffsetLeft = targetElement.offsetLeft;
+            targetElement.initialOffsetTop = targetElement.offsetTop;
 
             if (targetElement.getAttribute('drag-enabled') == 'clone'){
                 targetElement = targetElement.cloneNode(true);
