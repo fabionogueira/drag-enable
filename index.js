@@ -226,6 +226,7 @@ function onMouseMove(event) {
         dispatch('dropEnter', evt) //, targetDrop)
     }
 
+    event.preventDefault()
     // window.dispatchEvent(new Event('resize'))
 }
 
