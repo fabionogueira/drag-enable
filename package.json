@@ -1,6 +1,6 @@
 {
   "name": "drag-enable",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Enable drag element",
   "main": "dist/index.js",
   "scripts": {

@@ -1,3 +1,5 @@
+// @ts-check
+
 let targetElement;
 let difX, difY, initialX, initialY;
 let initialUserSelect;
@@ -38,7 +40,9 @@ function round(p, n) {
 }
 
 function checkMatch(element, match){
-    let a, def;
+    /** @type {*} */
+    let def
+    let a
 
     if (match){
         def = compiledMatchs[match];
@@ -55,7 +59,7 @@ function checkMatch(element, match){
                 def.value = a[1];
             } else if (match[0] == '.') {
                 def.type = 'css';
-                def.value = a.substring(1);
+                def.value = def.value.substring(1);
             }
         }
 
@@ -118,109 +122,111 @@ function dispatch(name, event = null) {
 }
 
 function onMouseMove(event) {
-    let rect, targetDrop, targetMouseOver, gd, x, y, dropName, evt;
+    let rect, targetDrop, targetMouseOver, gd, x, y, dropName, evt
     
-    deslocX = event.pageX - initialX;
-    deslocY = event.pageY - initialY;
-    mouseX = event.pageX;
-    mouseY = event.pageY;
+    deslocX = event.pageX - initialX
+    deslocY = event.pageY - initialY
+    mouseX = event.pageX
+    mouseY = event.pageY
     
-    evt = createEvent();
+    evt = createEvent()
     
     // encontra o target drop
     if (!targetElement.__display){
-        targetElement.__display = targetElement.style.display;
+        targetElement.__display = targetElement.style.display
     }
-    targetElement.style.display = 'none';
-    targetDrop = targetMouseOver = document.elementFromPoint(event.pageX, event.pageY);
-    targetElement.style.display = targetElement.__display;
-    evt.target = targetDrop; // element que o mouse está dentro
+    targetElement.style.display = 'none'
+    targetDrop = targetMouseOver = document.elementFromPoint(event.pageX, event.pageY)
+    targetElement.style.display = targetElement.__display
+    evt.target = targetDrop // element que o mouse está dentro
     
     if (targetDrop){
-        targetDrop = targetDrop.closest('[drop-enabled]');
-        if (targetDrop){
-            evt.targetDrop = targetDrop;
-            dropName = targetDrop.getAttribute('drop-enabled');
-
+        targetDrop = targetDrop.closest('[drop-enabled]')
+        if (targetDrop){ 
+            evt.targetDrop = targetDrop
+            dropName = targetDrop.getAttribute('drop-enabled')
+            
             if (targetElement.getAttribute('drop-target') && targetElement.getAttribute('drop-target') != dropName){
-                evt.targetDrop = targetDrop = null;
+                evt.targetDrop = targetDrop = null
             } else {
                 // posição do mouse dentro target drop
-                rect = targetDrop.getBoundingClientRect();
-                evt.dropX = mouseX - rect.left;
-                evt.dropY = mouseY - rect.top;
+                rect = targetDrop.getBoundingClientRect()
+                evt.dropX = mouseX - rect.left
+                evt.dropY = mouseY - rect.top
                 
                 // posição do mouse dentro do elemento mouseover
-                rect = targetMouseOver.getBoundingClientRect();
-                evt.dropChildX = mouseX - rect.left;
-                evt.dropChildY = mouseY - rect.top;
+                rect = targetMouseOver.getBoundingClientRect()
+                evt.dropChildX = mouseX - rect.left
+                evt.dropChildY = mouseY - rect.top
             }
         }
     }
 
     if (!targetElement.__drag_started) {
-        lockTextSelection();
+        lockTextSelection()
 
-        if (targetElement.getAttribute('drag-container')!='self'){
-            document.body.appendChild(targetElement);
+        if (targetElement.getAttribute('drag-container') != 'self'){
+            document.body.appendChild(targetElement)
         }
         
-        targetElement.setAttribute('drag-moving', '');
-        targetElement.__drag_started = true;
-        dragData = {};
-        gd = targetElement.parentNode.getAttribute('grid');
+        targetElement.setAttribute('drag-moving', '')
+        targetElement.__drag_started = true
+        dragData = {}
+        gd = targetElement.parentNode.getAttribute('grid')
         if (gd){
-            grid = gd.split(',');
+            grid = gd.split(',')
             grid.forEach((n, i, a) => {
-                a[i] = Number(n);
-            });
+                a[i] = Number(n)
+            })
         } else {
-            grid = [1,1];
+            grid = [1, 1]
         }
         
-        dispatch('dragStart', {data:dragData, target:targetElement});
+        dispatch('dragStart', {data:dragData, target:targetElement, targetOrigin: event.target})
     }
 
-    x = targetElement.parentNode == document.body ? mouseX - difX : targetElement.initialOffsetLeft + deslocX; 
-    y = targetElement.parentNode == document.body ? mouseY - difY : targetElement.initialOffsetTop + deslocY;
+    x = targetElement.parentNode == document.body ? mouseX - difX : targetElement.initialOffsetLeft + deslocX 
+    y = targetElement.parentNode == document.body ? mouseY - difY : targetElement.initialOffsetTop + deslocY
     
-    x = round(x, grid[0]);
-    y = round(y, grid[1]);
+    x = round(x, grid[0])
+    y = round(y, grid[1])
 
-    dispatch('dragMove', evt);
+    evt.x = x
+    evt.y = y
+
+    dispatch('dragMove', evt)
     
     if (evt.cancel !== true) {
 
         // posiciona o elemento
-        targetElement.style.zIndex = 9999999;
-        targetElement.style.position = 'absolute';
-        targetElement.style.margin = 0;
-        targetElement.style.top = `${y}px`;
-        targetElement.style.left = `${x}px`;
+        targetElement.style.zIndex = 9999999
+        targetElement.style.position = 'absolute'
+        targetElement.style.margin = 0
+        targetElement.style.top = `${evt.y}px`
+        targetElement.style.left = `${evt.x}px`
     }
 
-    dispatch('dragAfterMove', evt);
+    dispatch('dragAfterMove', evt)
 
     if (activeTargetDrop && activeTargetDrop != targetDrop){
         // saiu da drop zone
-        evt.targetDrop = activeTargetDrop;
-        activeTargetDrop.removeAttribute('drop-over');
-        targetElement.removeAttribute('droppable');
+        evt.targetDrop = activeTargetDrop
+        activeTargetDrop.removeAttribute('drop-over')
+        targetElement.removeAttribute('droppable')
 
-        activeTargetDrop = null;
-        dispatch('dropExit', evt, targetDrop);
+        activeTargetDrop = null
+        dispatch('dropExit', evt) //, targetDrop)
     }
 
     if (targetDrop && targetDrop != activeTargetDrop){
         // entrou na drop zone
-        targetDrop.setAttribute('drop-over', '');
-        targetElement.setAttribute('droppable', '');
-        activeTargetDrop = targetDrop;
-        dispatch('dropEnter', evt, targetDrop);
+        targetDrop.setAttribute('drop-over', '')
+        targetElement.setAttribute('droppable', '')
+        activeTargetDrop = targetDrop
+        dispatch('dropEnter', evt) //, targetDrop)
     }
 
-    event.preventDefault()
-    // window.dispatchEvent(new Event('resize'));
+    // window.dispatchEvent(new Event('resize'))
 }
 
 function onMouseUp() {
@@ -254,58 +260,66 @@ function onMouseUp() {
 }
 
 function onMouseDown(event) {
-    let t = event.target;
-    let r;
-    let evt;
+    let t = event.target
+    let r, k, o, mode, evt, _isDraggable
 
     if (targetElement){
-        onMouseUp();
-        targetElement = null;
-        activeOptions = [];
+        onMouseUp()
+        targetElement = null
+        activeOptions = []
     }
 
-    while (t.parentNode) {
+    while (t.parentNode && t != document.body) {
         if (t.hasAttribute('drag-disabled')){
-            return;
+            return
         }
         
-        if (t.hasAttribute('drag-enabled')) {
-            activeOptions = getActiveOptions(t);
-            targetElement = t;
+        for (k in observers){
+            o = observers[k]
+            _isDraggable = o.isDraggable || isDraggable
+            
+            mode = _isDraggable(t)
 
-            r = targetElement.getBoundingClientRect();
+            if (mode) {
+                activeOptions = getActiveOptions(t)
+                targetElement = t
 
-            difX = event.pageX - r.left;
-            difY = event.pageY - r.top;
-            initialX = event.pageX;
-            initialY = event.pageY;
-            targetElement.initialOffsetLeft = targetElement.offsetLeft;
-            targetElement.initialOffsetTop = targetElement.offsetTop;
+                r = targetElement.getBoundingClientRect()
 
-            if (targetElement.getAttribute('drag-enabled') == 'clone'){
-                targetElement = targetElement.cloneNode(true);
-                targetElement.__isClone = true;
+                difX = event.pageX - r.left
+                difY = event.pageY - r.top
+                initialX = event.pageX
+                initialY = event.pageY
+                targetElement.initialOffsetLeft = targetElement.offsetLeft
+                targetElement.initialOffsetTop = targetElement.offsetTop
+
+                if (mode == 'clone' || targetElement.getAttribute('drag-enabled') == 'clone'){
+                    targetElement = targetElement.cloneNode(true)
+                    targetElement.__isClone = true
+                }
+
+                evt = {target:targetElement}
+                dispatch('dragBeforeStart', evt)
+                evt.target.__isClone = targetElement.__isClone
+                targetElement = evt.target
+
+                targetElement.ondragstart = function() {
+                    return false
+                }
+                
+                document.addEventListener('mouseup', onMouseUp)
+                document.addEventListener('mousemove', onMouseMove)
+                
+                return
             }
-
-            evt = {target:targetElement};
-            dispatch('dragBeforeStart', evt);
-            evt.target.__isClone = targetElement.__isClone;
-            targetElement = evt.target;
-
-            targetElement.ondragstart = function() {
-                return false;
-            };
-            
-            document.addEventListener('mouseup', onMouseUp);
-            document.addEventListener('mousemove', onMouseMove);
-            
-            break;
-
-        } else {
-            t = t.parentNode;
         }
 
+        t = t.parentNode
     }
+}
+
+function isDraggable(node){
+    return node.hasAttribute('drag-enabled')
 }
 
 function lockTextSelection(){
